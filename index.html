@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Job Application Tracker</title>
+  <style>
+    :root{--bg:#0f1724;--card:#0b1220;--muted:#9aa4b2;--accent:#06b6d4;--accent-2:#7c3aed;--glass:rgba(255,255,255,0.03)}
+    *{box-sizing:border-box;font-family:Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial}
+    html,body{height:100%;margin:0;background:linear-gradient(180deg,#071022 0%, #081226 60%);color:#e6eef6}
+    .wrap{max-width:1100px;margin:28px auto;padding:20px}
+    header{display:flex;align-items:center;gap:16px;margin-bottom:18px}
+    .logo{width:56px;height:56px;border-radius:12px;background:linear-gradient(135deg,var(--accent),var(--accent-2));display:flex;align-items:center;justify-content:center;font-weight:700}
+    h1{margin:0;font-size:20px}
+    p.lead{margin:0;color:var(--muted);font-size:13px}
+
+    .grid{display:grid;grid-template-columns:1fr 360px;gap:18px}
+    .card{background:var(--card);border-radius:12px;padding:14px;box-shadow:0 6px 18px rgba(2,6,23,0.6)}
+
+    /* form */
+    form .row{display:flex;gap:10px}
+    label{font-size:12px;color:var(--muted);display:block;margin-bottom:6px}
+    input,select,textarea{width:100%;padding:9px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);background:var(--glass);color:inherit}
+    textarea{min-height:80px;resize:vertical}
+    .actions{display:flex;gap:8px;align-items:center;margin-top:10px}
+    button{background:linear-gradient(90deg,var(--accent),var(--accent-2));border:none;padding:9px 12px;border-radius:9px;color:#021022;cursor:pointer;font-weight:600}
+    button.secondary{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted)}
+
+    /* list */
+    .controls{display:flex;gap:8px;align-items:center;margin-bottom:12px}
+    .search{flex:1}
+    .pill{padding:6px 10px;border-radius:999px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.03);font-size:13px}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:10px 8px;text-align:left;font-size:13px;border-bottom:1px dashed rgba(255,255,255,0.03)}
+    th{color:var(--muted);font-size:12px}
+    .status{display:inline-block;padding:6px 8px;border-radius:999px;font-weight:700;font-size:12px}
+    .status.applied{background:rgba(6,182,212,0.12);color:var(--accent)}
+    .status.interview{background:rgba(124,58,237,0.12);color:var(--accent-2)}
+    .status.offer{background:rgba(34,197,94,0.12);color:#22c55e}
+    .status.rejected{background:rgba(239,68,68,0.08);color:#f87171}
+
+    .row-actions{display:flex;gap:6px}
+    .tiny{padding:6px 8px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.04);font-size:12px;color:var(--muted);cursor:pointer}
+
+    footer{margin-top:16px;color:var(--muted);font-size:13px}
+
+    /* responsive */
+    @media (max-width:940px){.grid{grid-template-columns:1fr;}.logo{width:44px;height:44px}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="logo">JA</div>
+      <div>
+        <h1>Job Application Tracker</h1>
+        <p class="lead">Quickly add, filter, export and manage your job applications. Data stored locally in your browser.</p>
+      </div>
+    </header>
+
+    <div class="grid">
+      <section class="card" style="min-height:340px;">
+        <h3 style="margin-top:0">Applications</h3>
+
+        <div class="controls">
+          <input id="q" class="search" placeholder="Search company, role, notes..." />
+          <select id="filterStatus" class="pill">
+            <option value="">All statuses</option>
+            <option value="Applied">Applied</option>
+            <option value="Interview">Interview</option>
+            <option value="Offer">Offer</option>
+            <option value="Rejected">Rejected</option>
+          </select>
+          <select id="sortBy" class="pill">
+            <option value="updated_desc">Recently updated</option>
+            <option value="date_desc">Date (new → old)</option>
+            <option value="date_asc">Date (old → new)</option>
+            <option value="company_asc">Company A→Z</option>
+          </select>
+          <button id="exportBtn" class="tiny">Export CSV</button>
+          <button id="importBtn" class="tiny">Import CSV</button>
+          <input id="fileInput" type="file" accept=".csv" style="display:none" />
+        </div>
+
+        <div style="overflow:auto;max-height:420px">
+          <table id="appsTable">
+            <thead><tr><th>Company</th><th>Role</th><th>Status</th><th>Date</th><th>Notes</th><th></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <footer>
+          <span id="count">0 applications</span>
+        </footer>
+      </section>
+
+      <aside class="card">
+        <h3 style="margin-top:0">Add / Edit Application</h3>
+        <form id="appForm">
+          <input type="hidden" id="id" />
+          <div style="margin-bottom:10px">
+            <label for="company">Company</label>
+            <input id="company" required />
+          </div>
+          <div style="margin-bottom:10px">
+            <label for="role">Role / Title</label>
+            <input id="role" />
+          </div>
+          <div style="margin-bottom:10px">
+            <label for="date">Applied Date</label>
+            <input id="date" type="date" />
+          </div>
+          <div style="margin-bottom:10px">
+            <label for="status">Status</label>
+            <select id="status">
+              <option>Applied</option>
+              <option>Interview</option>
+              <option>Offer</option>
+              <option>Rejected</option>
+            </select>
+          </div>
+          <div style="margin-bottom:10px">
+            <label for="notes">Notes</label>
+            <textarea id="notes" placeholder="Link, contact, next steps..."></textarea>
+          </div>
+          <div class="actions">
+            <button type="submit">Save</button>
+            <button type="button" class="secondary" id="resetBtn">Clear</button>
+          </div>
+        </form>
+
+        <hr style="border:none;border-top:1px dashed rgba(255,255,255,0.03);margin:12px 0" />
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <button id="clearAll" class="secondary">Clear all applications</button>
+          <button id="sampleBtn" class="secondary">Load sample data</button>
+        </div>
+      </aside>
+    </div>
+
+  </div>
+
+  <script>
+    // Simple single-file job application tracker
+    const storageKey = 'job_apps_v1';
+
+    // Utilities
+    const $ = sel => document.querySelector(sel);
+    const $$ = sel => Array.from(document.querySelectorAll(sel));
+    const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,8);
+
+    // Elements
+    const appsTableBody = $('#appsTable tbody');
+    const countEl = $('#count');
+    const form = $('#appForm');
+    const qInput = $('#q');
+    const filterStatus = $('#filterStatus');
+    const sortBy = $('#sortBy');
+    const fileInput = $('#fileInput');
+
+    // State
+    let apps = [];
+
+    // Load
+    function load(){
+      try{
+        const raw = localStorage.getItem(storageKey);
+        apps = raw ? JSON.parse(raw) : [];
+      }catch(e){apps=[]}
+    }
+
+    function save(){
+      localStorage.setItem(storageKey, JSON.stringify(apps));
+    }
+
+    // Render
+    function render(){
+      const q = qInput.value.trim().toLowerCase();
+      const status = filterStatus.value;
+      let list = apps.slice();
+
+      // Search
+      if(q) list = list.filter(a=> (a.company||'').toLowerCase().includes(q) || (a.role||'').toLowerCase().includes(q) || (a.notes||'').toLowerCase().includes(q));
+      // Filter
+      if(status) list = list.filter(a=>a.status===status);
+      // Sort
+      const s = sortBy.value;
+      if(s==='updated_desc') list.sort((a,b)=> (b.updated||0)-(a.updated||0));
+      if(s==='date_desc') list.sort((a,b)=> (b.date||'').localeCompare(a.date||''));
+      if(s==='date_asc') list.sort((a,b)=> (a.date||'').localeCompare(b.date||''));
+      if(s==='company_asc') list.sort((a,b)=> (a.company||'').localeCompare(b.company||''));
+
+      // Fill table
+      appsTableBody.innerHTML = '';
+      list.forEach(a=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${escapeHtml(a.company||'—')}</td>
+          <td>${escapeHtml(a.role||'—')}</td>
+          <td><span class="status ${statusClass(a.status)}">${escapeHtml(a.status||'Applied')}</span></td>
+          <td>${a.date||'—'}</td>
+          <td title="${escapeAttr(a.notes||'')}">${shorten(a.notes||'',36)}</td>
+          <td class="row-actions">
+            <button class="tiny" data-id="${a.id}" data-action="edit">Edit</button>
+            <button class="tiny" data-id="${a.id}" data-action="del">Delete</button>
+          </td>
+        `;
+        appsTableBody.appendChild(tr);
+      });
+
+      countEl.textContent = `${list.length} ${list.length===1? 'application':'applications'}`;
+    }
+
+    function statusClass(s){
+      if(!s) return 'applied';
+      return s.toLowerCase().includes('interview')? 'interview'
+            : s.toLowerCase().includes('offer')? 'offer'
+            : s.toLowerCase().includes('reject')? 'rejected'
+            : 'applied';
+    }
+
+    function shorten(str,len){ if(!str) return ''; return str.length>len? str.slice(0,len-1)+'…': str }
+    function escapeHtml(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
+    function escapeAttr(s){ return (s||'').replace(/"/g,'&quot;') }
+
+    // Form handling
+    form.addEventListener('submit',e=>{
+      e.preventDefault();
+      const id = $('#id').value;
+      const company = $('#company').value.trim();
+      if(!company) return alert('Please enter a company name');
+      const role = $('#role').value.trim();
+      const date = $('#date').value || new Date().toISOString().slice(0,10);
+      const status = $('#status').value;
+      const notes = $('#notes').value.trim();
+
+      if(id){
+        const idx = apps.findIndex(x=>x.id===id);
+        if(idx>-1){
+          apps[idx] = {...apps[idx],company,role,date,status,notes,updated:Date.now()};
+        }
+      }else{
+        apps.unshift({id:uid(),company,role,date,status,notes,created:Date.now(),updated:Date.now()});
+      }
+      save();
+      render();
+      form.reset();
+      $('#id').value='';
+    });
+
+    $('#resetBtn').addEventListener('click',()=>{ form.reset(); $('#id').value=''; });
+
+    // Table actions
+    appsTableBody.addEventListener('click',e=>{
+      const btn = e.target.closest('button'); if(!btn) return;
+      const id = btn.dataset.id; const action = btn.dataset.action;
+      if(action==='edit'){
+        const a = apps.find(x=>x.id===id); if(!a) return;
+        $('#id').value = a.id; $('#company').value=a.company; $('#role').value=a.role; $('#date').value=a.date; $('#status').value=a.status; $('#notes').value=a.notes;
+        window.scrollTo({top:0,behavior:'smooth'});
+      }
+      if(action==='del'){
+        if(!confirm('Delete this application?')) return;
+        apps = apps.filter(x=>x.id!==id); save(); render();
+      }
+    });
+
+    // Clear all
+    $('#clearAll').addEventListener('click',()=>{
+      if(!confirm('Clear ALL saved applications? This cannot be undone.')) return;
+      apps = []; save(); render();
+    });
+
+    // Sample
+    $('#sampleBtn').addEventListener('click',()=>{
+      const sample = [
+        {id:uid(),company:'Acme Corp',role:'Frontend Engineer',date:'2025-10-01',status:'Applied',notes:'Applied via LinkedIn. Recruiter: Priya',created:Date.now(),updated:Date.now()},
+        {id:uid(),company:'BetaSoft',role:'Backend Engineer',date:'2025-09-21',status:'Interview',notes:'Phone screening completed',created:Date.now(),updated:Date.now()},
+        {id:uid(),company:'Gamma Labs',role:'Data Analyst',date:'2025-08-18',status:'Rejected',notes:'Not a match',created:Date.now(),updated:Date.now()},
+      ];
+      apps = sample.concat(apps);
+      save(); render();
+    });
+
+    // Search / filter
+    qInput.addEventListener('input',render);
+    filterStatus.addEventListener('change',render);
+    sortBy.addEventListener('change',render);
+
+    // Export CSV
+    function toCsv(rows){
+      const esc = v => '"'+ String(v||'').replace(/"/g,'""') +'"';
+      const header = ['id','company','role','date','status','notes','created','updated'];
+      const lines = [header.join(',')];
+      rows.forEach(r=>{ lines.push(header.map(h=>esc(r[h]||'')).join(',')) });
+      return lines.join('\n');
+    }
+
+    $('#exportBtn').addEventListener('click',()=>{
+      if(!apps.length) return alert('No data to export');
+      const csv = toCsv(apps);
+      const blob = new Blob([csv],{type:'text/csv'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href=url; a.download='job-applications.csv'; a.click(); URL.revokeObjectURL(url);
+    });
+
+    // Import CSV (very forgiving)
+    $('#importBtn').addEventListener('click',()=> fileInput.click());
+    fileInput.addEventListener('change', async e=>{
+      const f = e.target.files[0]; if(!f) return;
+      const text = await f.text();
+      const parsed = parseCsv(text);
+      if(!parsed.length) return alert('No rows found');
+      // convert rows to app objects
+      parsed.forEach(r=>{
+        const obj = {
+          id: r.id || uid(),
+          company: r.company || '',
+          role: r.role || '',
+          date: r.date || '',
+          status: r.status || 'Applied',
+          notes: r.notes || '',
+          created: r.created? Number(r.created): Date.now(),
+          updated: r.updated? Number(r.updated): Date.now()
+        };
+        // avoid duplicate IDs
+        if(!apps.some(a=>a.id===obj.id)) apps.push(obj);
+      });
+      save(); render();
+      fileInput.value='';
+    });
+
+    function parseCsv(text){
+      // naive CSV parser that handles quoted values
+      const lines = text.split(/\r?\n/).filter(l=>l.trim()!=='');
+      if(!lines.length) return [];
+      const header = splitCsvLine(lines[0]);
+      const rows = [];
+      for(let i=1;i<lines.length;i++){
+        const cols = splitCsvLine(lines[i]);
+        if(cols.length===0) continue;
+        const obj = {};
+        header.forEach((h,idx)=> obj[h.trim()]= cols[idx] !== undefined ? cols[idx] : '');
+        rows.push(obj);
+      }
+      return rows;
+    }
+
+    function splitCsvLine(line){
+      const res=[]; let cur=''; let inQuote=false;
+      for(let i=0;i<line.length;i++){
+        const ch=line[i];
+        if(ch==='"'){
+          if(inQuote && line[i+1]==='"'){ cur+='"'; i++; continue; }
+          inQuote = !inQuote; continue;
+        }
+        if(ch===',' && !inQuote){ res.push(cur); cur=''; continue; }
+        cur += ch;
+      }
+      res.push(cur);
+      return res.map(s=>s.trim());
+    }
+
+    // Initialize
+    load(); render();
+
+    // Keyboard: n to focus new company
+    window.addEventListener('keydown',e=>{
+      if(e.key.toLowerCase()==='n' && document.activeElement.tagName.toLowerCase()!=='input' && document.activeElement.tagName.toLowerCase()!=='textarea'){
+        e.preventDefault(); $('#company').focus();
+      }
+    });
+
+    // friendly auto-save when leaving page
+    window.addEventListener('beforeunload', ()=> save());
+
+  </script>
+</body>
+</html>
